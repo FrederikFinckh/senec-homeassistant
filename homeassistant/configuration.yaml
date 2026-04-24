@@ -1,0 +1,213 @@
+# SENEC Solar/Battery Integration for Home Assistant
+# ===================================================
+#
+# This configuration integrates a local SENEC inverter using
+# command_line sensors that poll the device via its HTTP API.
+#
+# Prerequisites:
+#   - Copy the entire 'pv' folder (scripts) to /config/pv/
+#   - Ensure python3, curl, and jq are available in the HA container
+#   - Adjust the SENEC IP in senec_read.sh if needed
+#
+# Add the contents of this file to your existing configuration.yaml
+# (or use !include directives).
+
+# -- Shell command to fetch fresh data from the SENEC device ----------
+shell_command:
+  senec_update: "bash /config/pv/senec_read.sh /config/pv/pv_values.json"
+
+# -- Command-line sensor platform ------------------------------------
+# A single command_line entry fetches the JSON once per scan_interval,
+# and value_template + json_attributes extract all fields from it.
+command_line:
+  # Primary sensor: Solar power generation (total inverter output)
+  - sensor:
+      name: "SENEC Solar Power"
+      unique_id: senec_solar_power
+      command: "cat /config/pv/pv_values.json"
+      value_template: "{{ value_json.summary.INVERTER_POWER_TOTAL_W }}"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      scan_interval: 30
+
+  # House consumption
+  - sensor:
+      name: "SENEC House Power"
+      unique_id: senec_house_power
+      command: "cat /config/pv/pv_values.json"
+      value_template: "{{ value_json.summary.GUI_HOUSE_POWER_W }}"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      scan_interval: 30
+
+  # Grid power (negative = export, positive = import)
+  - sensor:
+      name: "SENEC Grid Power"
+      unique_id: senec_grid_power
+      command: "cat /config/pv/pv_values.json"
+      value_template: "{{ value_json.summary.GUI_GRID_POWER_W }}"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      scan_interval: 30
+
+  # Battery power (positive = charging, negative = discharging)
+  - sensor:
+      name: "SENEC Battery Power"
+      unique_id: senec_battery_power
+      command: "cat /config/pv/pv_values.json"
+      value_template: "{{ value_json.summary.GUI_BATTERY_POWER_W }}"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      scan_interval: 30
+
+  # Battery state of charge
+  - sensor:
+      name: "SENEC Battery Level"
+      unique_id: senec_battery_level
+      command: "cat /config/pv/pv_values.json"
+      value_template: "{{ value_json.summary.GUI_BATTERY_SOC_PCT }}"
+      unit_of_measurement: "%"
+      device_class: battery
+      state_class: measurement
+      scan_interval: 30
+
+  # MPP string 2 power
+  - sensor:
+      name: "SENEC MPP2 Power"
+      unique_id: senec_mpp2_power
+      command: "cat /config/pv/pv_values.json"
+      value_template: "{{ value_json.summary.MPP2_POWER_W }}"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      scan_interval: 30
+
+  # MPP string 3 power
+  - sensor:
+      name: "SENEC MPP3 Power"
+      unique_id: senec_mpp3_power
+      command: "cat /config/pv/pv_values.json"
+      value_template: "{{ value_json.summary.MPP3_POWER_W }}"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      scan_interval: 30
+
+  # Battery DC current
+  - sensor:
+      name: "SENEC Battery DC Current"
+      unique_id: senec_battery_dc_current
+      command: "cat /config/pv/pv_values.json"
+      value_template: "{{ value_json.summary.BATTERY_DC_CURRENT_A }}"
+      unit_of_measurement: "A"
+      device_class: current
+      state_class: measurement
+      scan_interval: 30
+
+  # System state code
+  - sensor:
+      name: "SENEC System State"
+      unique_id: senec_system_state
+      command: "cat /config/pv/pv_values.json"
+      value_template: "{{ value_json.summary.SYSTEM_STATE_CODE }}"
+      scan_interval: 30
+
+# -- Template sensors for derived values ------------------------------
+template:
+  - sensor:
+      # Grid export (only positive when exporting)
+      - name: "SENEC Grid Export"
+        unique_id: senec_grid_export
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+        state: >
+          {% set grid = states('sensor.senec_grid_power') | float(0) %}
+          {{ (grid * -1) if grid < 0 else 0 }}
+
+      # Grid import (only positive when importing)
+      - name: "SENEC Grid Import"
+        unique_id: senec_grid_import
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+        state: >
+          {% set grid = states('sensor.senec_grid_power') | float(0) %}
+          {{ grid if grid > 0 else 0 }}
+
+      # Battery charging power (only positive when charging)
+      - name: "SENEC Battery Charging"
+        unique_id: senec_battery_charging
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+        state: >
+          {% set bat = states('sensor.senec_battery_power') | float(0) %}
+          {{ bat if bat > 0 else 0 }}
+
+      # Battery discharging power (only positive when discharging)
+      - name: "SENEC Battery Discharging"
+        unique_id: senec_battery_discharging
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+        state: >
+          {% set bat = states('sensor.senec_battery_power') | float(0) %}
+          {{ (bat * -1) if bat < 0 else 0 }}
+
+      # Self-consumption percentage
+      - name: "SENEC Self Consumption"
+        unique_id: senec_self_consumption
+        unit_of_measurement: "%"
+        state_class: measurement
+        state: >
+          {% set solar = states('sensor.senec_solar_power') | float(0) %}
+          {% set export = states('sensor.senec_grid_export') | float(0) %}
+          {% if solar > 0 %}
+            {{ (((solar - export) / solar) * 100) | round(1) }}
+          {% else %}
+            0
+          {% endif %}
+
+      # System state as human-readable text
+      - name: "SENEC System State Text"
+        unique_id: senec_system_state_text
+        state: >
+          {% set code = states('sensor.senec_system_state') | int(-1) %}
+          {% set states_map = {
+            0: 'Initial state',
+            1: 'Error inverter communication',
+            2: 'Error electricity meter',
+            3: 'Overcurrent protection',
+            4: 'Performing update',
+            5: 'Standby',
+            6: 'Error BMS',
+            7: 'Software update',
+            8: 'Standby',
+            9: 'Self test',
+            10: 'Emergency power available',
+            11: 'Restart',
+            12: 'Charging',
+            13: 'Throttled',
+            14: 'Discharging',
+            15: 'Forced charging',
+            16: 'Error inverter',
+            17: 'Blackout',
+            18: 'Grid disturbance',
+          } %}
+          {{ states_map.get(code, 'Unknown (' ~ code ~ ')') }}
+
+# -- Automation: periodically refresh the SENEC data -----------------
+automation:
+  - id: senec_periodic_update
+    alias: "SENEC Periodic Data Update"
+    description: "Fetch fresh data from the SENEC device every 30 seconds"
+    triggers:
+      - trigger: time_pattern
+        seconds: "/30"
+    actions:
+      - action: shell_command.senec_update

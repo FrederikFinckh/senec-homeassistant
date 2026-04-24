@@ -1,0 +1,64 @@
+# SENEC sensor customizations (icons and friendly names)
+# Add to your existing customize.yaml or reference via:
+#   homeassistant:
+#     customize: !include customize.yaml
+
+sensor.senec_solar_power:
+  icon: mdi:solar-power
+  friendly_name: "Solar Power"
+
+sensor.senec_house_power:
+  icon: mdi:home-lightning-bolt
+  friendly_name: "House Consumption"
+
+sensor.senec_grid_power:
+  icon: mdi:transmission-tower
+  friendly_name: "Grid Power"
+
+sensor.senec_grid_export:
+  icon: mdi:transmission-tower-export
+  friendly_name: "Grid Export"
+
+sensor.senec_grid_import:
+  icon: mdi:transmission-tower-import
+  friendly_name: "Grid Import"
+
+sensor.senec_battery_power:
+  icon: mdi:battery-charging
+  friendly_name: "Battery Power"
+
+sensor.senec_battery_level:
+  icon: mdi:battery
+  friendly_name: "Battery Level"
+
+sensor.senec_battery_charging:
+  icon: mdi:battery-arrow-up
+  friendly_name: "Battery Charging"
+
+sensor.senec_battery_discharging:
+  icon: mdi:battery-arrow-down
+  friendly_name: "Battery Discharging"
+
+sensor.senec_battery_dc_current:
+  icon: mdi:current-dc
+  friendly_name: "Battery DC Current"
+
+sensor.senec_mpp2_power:
+  icon: mdi:solar-panel
+  friendly_name: "String 2 Power"
+
+sensor.senec_mpp3_power:
+  icon: mdi:solar-panel
+  friendly_name: "String 3 Power"
+
+sensor.senec_self_consumption:
+  icon: mdi:percent
+  friendly_name: "Self Consumption"
+
+sensor.senec_system_state:
+  icon: mdi:state-machine
+  friendly_name: "System State Code"
+
+sensor.senec_system_state_text:
+  icon: mdi:information-outline
+  friendly_name: "System State"
